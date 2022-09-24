@@ -10,7 +10,7 @@ struct TpPedido{
     float valor_original;  // Valor de compra do fornecedor
     float valor_revenda;   // Valor da revenda
     char codigo[20];       // Codigo do pedido
-    int status;            // 0 se ja foi vendido, 1 caso contrario
+    int status;            // -1 caso seja excluido, 0 se ja foi vendido, 1 caso não tenha sido vendido
   };
 
 typedef struct TpPedido TpPEDIDO;
@@ -38,7 +38,7 @@ void Incluir()
     do 
     {
 	      fread(&RgPedido,Tamanho,1,ArqShip);
-	      if (strcmp(RgPedido.codigo,RgPedido_temp.codigo) == 0 && (RgPedido.status != 0))
+	      if (strcmp(RgPedido.codigo,RgPedido_temp.codigo) == 0 && (RgPedido.status > 0))
         {
 	          Achou=1;
         }
@@ -103,9 +103,9 @@ void Excluir()
     do
     {
       fread(&RgPedido,Tamanho,1,ArqShip);
-      if (strcmp(RgPedido.codigo, codigo) == 0 && (RgPedido.status != 0))
+      if (strcmp(RgPedido.codigo, codigo) == 0 && (RgPedido.status > 0))
       {
-        RgPedido.status = 0;
+        RgPedido.status = -1;
         Achou = 1;
         printf("Codigo de pedido encontrado! Excluindo...\n\n");
       }
@@ -151,7 +151,7 @@ void Alterar()
   do 
   {
 	fread(&RgPedido,Tamanho,1,ArqShip);
-	if (strcmp(RgPedido.codigo,codigo)==0 && RgPedido.status != 0)
+	if (strcmp(RgPedido.codigo,codigo)==0 && RgPedido.status > 0)
     {
 	    Achou=1;	
 	    printf("\nNome do Cliente: %s\n",RgPedido.cliente);
@@ -252,7 +252,7 @@ void Consultar()
   do 
   {
 	fread(&RgPedido,Tamanho,1,ArqShip);
-	if (strcmp(RgPedido.codigo,codigo)==0 && (RgPedido.status != 0))
+	if (strcmp(RgPedido.codigo,codigo)==0 && (RgPedido.status > 0))
     {
 	    Achou=1;
 	    printf("\nCliente: %s\n",RgPedido.cliente);
@@ -281,7 +281,7 @@ void ListarTodos()
   do 
   {
 	fread(&RgPedido,Tamanho,1,ArqShip);
-	if (!feof(ArqShip) && RgPedido.status != 0)
+	if (!feof(ArqShip) && RgPedido.status > 0)
     {
 	    printf("Cliente: %s\n",RgPedido.cliente);
       printf("Produto: %s\n",RgPedido.produto);
@@ -324,6 +324,83 @@ void Historico()
   return;
 }
 
+void Vender()
+{
+  if (TArquivo()!=0)
+  {
+    system("cls");
+    fclose(ArqShip);
+    ArqShip = fopen("Registro_de_vendas.dat","r+b");
+    char codigo[20];
+    fseek(ArqShip,0,0);
+
+    printf("Qual o codigo do pedido? ");
+    scanf(" %s",&codigo);
+
+    int Achou = 0;
+
+    do
+    {
+      fread(&RgPedido,Tamanho,1,ArqShip);
+      if (strcmp(RgPedido.codigo, codigo) == 0 && (RgPedido.status > 0))
+      {
+        RgPedido.status = 0;
+        Achou = 1;
+        printf("Codigo de pedido encontrado! Excluindo...\n\n");
+      }
+    }
+    while (!feof(ArqShip)&&(Achou==0));
+
+    if (Achou == 0)
+    {
+      printf("O codigo a ser excluido nao foi encontrado no arquivo\n");
+    }
+    else
+    {
+      fseek(ArqShip,-Tamanho,1);
+      fwrite(&RgPedido,Tamanho,1,ArqShip);
+    }   
+    system("pause");
+    fclose(ArqShip);
+    ArqShip = fopen("Registro_de_vendas.dat","a+b");
+  }
+  else
+  {
+    printf("Arquivo Vazio. Nao existem dados a deletar.");
+    system("pause");
+  }
+  return;
+
+}
+
+void LucroTotal()
+{
+  system("cls");
+  printf("*** Lucro Total ***\n\n");  
+  fseek(ArqShip,0,0);
+  float somaTotal = 0;
+  do 
+  {
+	fread(&RgPedido,Tamanho,1,ArqShip);
+	if (!feof(ArqShip) && RgPedido.status == 0)
+    {
+	    printf("Codigo de venda: %s\n", RgPedido.codigo);
+      printf("Quantidade: %d\n", RgPedido.quantidade);
+      printf("Valor original do produto: R$%.2f\n",RgPedido.valor_original);
+      printf("Valor de revenda: R$%.2f\n",RgPedido.valor_revenda);
+
+      float lucro = (RgPedido.valor_revenda)*(RgPedido.quantidade) - (RgPedido.valor_original)*(RgPedido.quantidade);
+      printf("Lucro: R$%2.f\n", lucro);
+      somaTotal = somaTotal + lucro;
+      printf("---------------\n");
+    }
+  }
+  while (!feof(ArqShip));
+  printf("Lucro total: R$%2.f\n", somaTotal);
+  system("pause");
+  return;
+}
+
 int main()
 {
   ArqShip = fopen("Registro_de_vendas.dat","a+b");
@@ -339,6 +416,8 @@ int main()
     printf("C - Consultar \n");
     printf("T - Listar Todos \n");
     printf("H - Historico\n");
+    printf("V - Vender\n");
+    printf("L - Obter lucro total\n");
     printf("S - Sair \n\n");
     scanf(" %c", &Opcao);
     Opcao = toupper(Opcao);
@@ -350,7 +429,8 @@ int main()
       case 'C': Consultar(); break;
       case 'T': ListarTodos(); break;
       case 'H' : Historico(); break;
-
+      case 'V' : Vender(); break;
+      case 'L' : LucroTotal(); break;
     }
   }
   while (Opcao != 'S');
